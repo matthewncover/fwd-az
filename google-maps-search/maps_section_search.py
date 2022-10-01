@@ -4,8 +4,9 @@ from business_metadata import MapsBusiness
 
 class MapsSectionSearch:
 
-    def __init__(self, driver, url):
+    def __init__(self, driver, state_abr, url):
 
+        self.state_abr = state_abr
         self.driver = driver
         self.url = url
 
@@ -21,7 +22,10 @@ class MapsSectionSearch:
         """
 
         self.driver.get(self.url)
-        self.soup = BeautifulSoup(self.driver.page_source)
+        self.soup = BeautifulSoup(
+            self.driver.page_source,
+            features = "html.parser"
+            )
 
     def get_businesses(self):
         """
@@ -36,9 +40,14 @@ class MapsSectionSearch:
         ]
 
         self.businesses = [
-            MapsBusiness(self.driver, business_name, business_url)
+            MapsBusiness(self.driver, self.state_abr, business_name, business_url)
             for (business_name, business_url)
             in business_name_url_tuples
+        ]
+
+        self.businesses = [
+            business for business in self.businesses
+            if business.is_valid_state_business_flag
         ]
 
 
