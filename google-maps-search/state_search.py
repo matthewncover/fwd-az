@@ -8,12 +8,12 @@ from shapely.geometry.polygon import Polygon
 from shapely.geometry import Point
 
 # web scraping imports
-import requests
 from selenium import webdriver
-from bs4 import BeautifulSoup
-from bs4.element import NavigableString
 
-class State:
+# homegrown imports
+from maps_section_search import MapsSectionSearch
+
+class StateSearch:
 
     ZOOM_FACTOR = 15
     LATLON_DELTA = 0.0307
@@ -21,16 +21,26 @@ class State:
     def __init__(self, state_name = "Arizona"):
 
         self.state_name = state_name
+        self.get_state_abr()
 
         self.read_geojson()
-        self.init_webdriver()
+        # self.init_webdriver() # don't want to init webdriver for every map section
+        self.init_lat_lon()
+
+    def get_state_abr(self):
+
+        state_abr_dict = {
+            "Arizona": "AZ"
+        }
+
+        self.state_abr = state_abr_dict[self.state_name]
 
 
     def read_geojson(self):
         """read in polygon coordinates
         """
 
-        state_geojsons = json.load(open("./us-state-boundaries.json"))
+        state_geojsons = json.load(open("./google-maps-search/us-state-boundaries.json"))
 
         state_geojson = [
             x for x in state_geojsons
@@ -54,6 +64,9 @@ class State:
         Parameters:
             lon (float): longitude of point to check
             lat (float): latitude of point to check
+
+        Returns:
+            bool
         """
 
         point = Point(lon, lat)
@@ -81,19 +94,52 @@ class State:
         )
 
     def create_maps_url(self, search_term, lat, lon):
-        """
+        """google maps url
+
+        Parameters:
+            search_term (str): single term to search google maps
+            lat (float): latitude center of search
+            lon (float): longitude center of search
+
+        Returns:
+            (str): google maps url
         """
 
         # warning: not tested for more 2+ terms in search_term
 
         return f"https://www.google.com/maps/search/{search_term}/@{lat},{lon},{self.ZOOM_FACTOR}z"
 
-    def get_soup(self):
+    def init_lat_lon(self):
+        """starts grid search at most north-east point
+        for AZ, this is the four corners monument
+        """
 
-        pass
+        lat_lon_sum = self.state_boundary[:, 0] + self.state_boundary[:, 1]
+
+        north_east_ind = np.where(
+            lat_lon_sum == lat_lon_sum.max()
+        )
+
+        self.lat0, self.lon0 = self.state_boundary[north_east_ind][0]
+
+    def search_businesses(self, search_term, lat, lon):
+
+        url = self.create_maps_url(search_term, lat, lon)
+
+        search_results = MapsSectionSearch(self.driver, url)
+
+        return search_results
+
 
 
 if __name__ == "__main__":
 
-    x = State()
-    print(x.state_boundary)
+    x = StateSearch()
+    x.init_webdriver()
+
+    search_results = x.search_businesses(
+        search_term="gym", 
+        lat=x.lat0, lon=x.lon0
+        )
+
+    print("done")
