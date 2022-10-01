@@ -106,8 +106,10 @@ class StateSearch:
         """
 
         # warning: not tested for more 2+ terms in search_term
+        
+        url = f"https://www.google.com/maps/search/{search_term}/@{lat},{lon},{self.ZOOM_FACTOR}z"
 
-        return f"https://www.google.com/maps/search/{search_term}/@{lat},{lon},{self.ZOOM_FACTOR}z"
+        return url
 
     def init_lat_lon(self):
         """starts grid search at most north-east point
@@ -120,13 +122,13 @@ class StateSearch:
             lat_lon_sum == lat_lon_sum.max()
         )
 
-        self.lat0, self.lon0 = self.state_boundary[north_east_ind][0]
+        self.lon0, self.lat0 = self.state_boundary[north_east_ind][0]
 
     def search_businesses(self, search_term, lat, lon):
 
         url = self.create_maps_url(search_term, lat, lon)
 
-        search_results = MapsSectionSearch(self.driver, url)
+        search_results = MapsSectionSearch(self.driver, self.state_abr, url)
 
         return search_results
 
@@ -137,9 +139,12 @@ if __name__ == "__main__":
     x = StateSearch()
     x.init_webdriver()
 
+    lat = 33.3068621
+    lon = -111.8752508
+
     search_results = x.search_businesses(
         search_term="gym", 
-        lat=x.lat0, lon=x.lon0
+        lat=lat, lon=lon
         )
 
     print("done")
