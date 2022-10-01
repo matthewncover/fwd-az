@@ -3,6 +3,8 @@ import re
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString
 
+import datetime as dt
+
 import business_metadata_regex as bmr
 
 # class MapsBusiness(MapsSectionSearch):
@@ -21,12 +23,13 @@ class MapsBusiness:
         traffic_data (dict): how busy the business is by day of week and hour of day
     """
 
-    def __init__(self, driver, business_name, business_url):
+    def __init__(self, driver, state_abr, business_name, business_url):
 
         # super().__init__()
 
         self.days_of_week = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
+        self.state_abr = state_abr
         self.driver = driver
         self.business_name = business_name
         self.business_url = business_url
@@ -38,19 +41,29 @@ class MapsBusiness:
     def get_business_metadata(self):
 
         self.get_business_contact_info()
-        self.get_business_num_reviews()
-        self.get_business_open_hours()
-        self.get_business_traffic_data()
+
+        try:
+            self.address
+            self.get_business_num_reviews()
+            self.get_business_open_hours()
+            self.get_business_traffic_data()
+            self.is_valid_state_business_flag = True
+
+        except AttributeError:
+            self.is_valid_state_business_flag = False
 
 
     def get_business_soup(self):
 
         self.driver.get(self.business_url)
-        self.business_soup = BeautifulSoup(self.driver.page_source)
+        self.business_soup = BeautifulSoup(
+            self.driver.page_source,
+            features="html.parser"
+            )
 
     def get_business_contact_info(self):
 
-        for bs4_tag in self.soup.find_all("div", {"class": "Io6YTe"}):
+        for bs4_tag in self.business_soup.find_all("div", {"class": "Io6YTe"}):
             self.classify_soup_text(bs4_tag, state=self.state_abr)
 
     def classify_soup_text(self, bs4_tag, state):
@@ -80,7 +93,7 @@ class MapsBusiness:
         """
 
         self.num_reviews = int(
-            self.soup.find_all(
+            self.business_soup.find_all(
                 "button",
                 {"class": "DkEaL"}
             )[0]
@@ -101,7 +114,7 @@ class MapsBusiness:
         """
 
         open_hours_text = (
-            self.soup.find_all(
+            self.business_soup.find_all(
                 "div",
                 {"class": "t39EBf"}
             )[0]
@@ -113,10 +126,23 @@ class MapsBusiness:
             for text in open_hours_text.split('.')[0].split(';')
         ]
 
+        def get_open_hrs_text(text, ind):
+
+            try:
+                open_hrs = text[1].split(" to ")[ind]
+            
+            except IndexError:
+                if text[1].startswith("Open 24"):
+                    open_hrs = "Open 24 hours"
+                else:
+                    open_hrs = "Error"
+
+            return open_hrs
+
         self.open_hours = {
             text[0]: {
-                "opens at": text[1].split(" to ")[0],
-                "closes at": text[1].split(" to ")[1]
+                "opens at": get_open_hrs_text(text, 0),
+                "closes at": get_open_hrs_text(text, 1)
             }
             for text in open_hours_text_per_day
         }
@@ -139,7 +165,7 @@ class MapsBusiness:
             for day_of_week, bs4_tags
             in zip(
                 self.days_of_week,
-                self.soup.find_all(
+                self.business_soup.find_all(
                     "div",
                     {"class": "g2BVhd"}
                 )
@@ -181,8 +207,19 @@ class MapsBusiness:
             if ("aria-label" in bs4_tag.attrs.keys())
         ]
 
+        def get_hour(text):
+
+            if text.startswith("Currently"):
+                return dt.datetime.today().strftime("%H%p")
+            else:
+                return text[re.search("at ", text).end():-1]
+
+        def get_traffic_percentage(text):
+
+            return int(re.search(r"\d{1,3}%", text).group()[:-1])
+
         traffic_data_dict = {
-            text[re.search("at ", text).end():-1]: int(text[:text.index("%")])
+            get_hour(text): get_traffic_percentage(text)
             for text in traffic_texts
         }
 
