@@ -1,7 +1,9 @@
-import requests
 import re
+from itertools import product
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString
+import inspect
+from numpy import arange, nan
 
 import datetime as dt
 
@@ -13,8 +15,8 @@ class MapsBusiness:
 
     Attributes:
 
-        business_name (str)
-        business_url (str)
+        name (str): business name
+        href_url (str): google maps url for the business
         website (str)
         address (str)
         phone_number (str)
@@ -23,16 +25,17 @@ class MapsBusiness:
         traffic_data (dict): how busy the business is by day of week and hour of day
     """
 
-    def __init__(self, driver, state_abr, business_name, business_url):
+    def __init__(self, driver, state_abr, business_name, href_url):
 
         # super().__init__()
 
         self.days_of_week = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        self.day_hours = [''.join(x) for x in product([str(x) for x in arange(1, 13)], [" AM", " PM"])]
 
         self.state_abr = state_abr
         self.driver = driver
         self.business_name = business_name
-        self.business_url = business_url
+        self.href_url = href_url
 
         self.get_business_soup()
         self.get_business_metadata()
@@ -46,23 +49,89 @@ class MapsBusiness:
     def get_business_metadata(self):
 
         self.get_business_contact_info()
+        self.get_business_num_reviews()
+        self.get_business_open_hours()
+        self.get_business_traffic_data()
 
-        try:
-            self.address
-            self.is_valid_state_business_flag = True
+        self.agg_single_data_attrs()
+        self.collapse_multi_data_attrs()
 
-        except AttributeError:
-            self.is_valid_state_business_flag = False
+    def agg_single_data_attrs(self):
+        """make data attributes dict-accessible
 
-        if self.is_valid_state_business_flag:
-            self.get_business_num_reviews()
-            self.get_business_open_hours()
-            self.get_business_traffic_data()
+        single_data_attrs is one-to-one string to string/int/float/bool mapping
+        """
+
+        self.data_attrs = dict([
+            attr for attr in inspect.getmembers(self)
+            if (
+                (not attr[0].startswith("_")) # remove special, built-in methods
+                and (not str(attr[1]).startswith("<")) # remove bound methods
+            )
+        ])
+
+        self.single_data_attrs = {
+            k: v
+            for k, v in self.data_attrs.items()
+            if type(v) in [str, int, float, bool]
+        }
+
+    def collapse_multi_data_attrs(self):
+        """expand dict/list/tuple values to be one-to-one
+        string to string/int/float/bool
+        """
+
+        self.collapse_open_hours()
+        self.collapse_traffic_data()
+
+    def collapse_open_hours(self):
+
+        if self.open_hours == ["No open hours data"]:
+            open_hours_flattened = {
+                f"{day}_{opens_closes}": nan
+                for day, opens_closes in product(self.days_of_week, ["opens", "closes"])
+            }
+
+        else:
+            open_hours_flattened = {
+                f"{day}_{opens_closes}": hrs_dict[opens_closes]
+                for day, hrs_dict in self.open_hours.items()
+                for opens_closes in hrs_dict.keys()
+            }
+
+        self.single_data_attrs.update(open_hours_flattened)
+
+    def collapse_traffic_data(self):
+
+        if self.traffic_data == ["No traffic data"]:
+            hour_traffic_flattened = {
+                f"{day}_{hour}_traffic": nan
+                for day, hour in product(self.days_of_week, self.day_hours)
+            }
+
+        else:
+            hour_traffic_flattened = {
+                f"{day}_{hour}_traffic": 0
+                if hour not in hour_traffic_dict.keys()
+                else hour_traffic_dict[hour]
+                for day, hour_traffic_dict in self.traffic_data.items()
+                for hour in self.day_hours
+            }
+
+        self.single_data_attrs.update(hour_traffic_flattened)
+
+# {
+#     f"{day}_{hour}_traffic": 0
+#     if hour not in hour_traffic_dict.keys()
+#     else hour_traffic_dict[hour]
+#     for day, hour_traffic_dict in traffic_data.items()
+#     for hour in day_hours
+# }
 
 
     def get_business_soup(self):
 
-        self.driver.get(self.business_url)
+        self.driver.get(self.href_url)
         self.business_soup = BeautifulSoup(
             self.driver.page_source,
             features="html.parser"
@@ -89,8 +158,9 @@ class MapsBusiness:
         if bmr.is_website(text):
             self.website = text
 
-        elif bmr.is_state_address(text, state=state):
+        elif bmr.is_address(text):
             self.address = text
+            self.state = bmr.get_state_from_address(text)
 
         elif bmr.is_phone_number(text):
             self.phone_number = text
@@ -110,52 +180,62 @@ class MapsBusiness:
             .get_text()
             .strip()
             .split(' ')[0]
+            .replace(",", "")
         )
 
     def get_business_open_hours(self):
         """ex)
         {
             "Friday": {
-                "opens at": "5AM",
-                "closes at": "6PM"
+                "opens_at": "5AM",
+                "closes_at": "6PM"
             }
             ...
         }
         """
 
-        open_hours_text = (
-            self.business_soup.find_all(
-                "div",
-                {"class": "t39EBf"}
-            )[0]
-            ["aria-label"]
+        open_hours_bs4_tags = self.business_soup.find_all(
+            "div", {"class": "t39EBf"}
         )
 
-        open_hours_text_per_day = [
-            text.strip().split(', ')
-            for text in open_hours_text.split('.')[0].split(';')
-        ]
-
+        # open_hours_text = (
+        #     self.business_soup.find_all(
+        #         "div",
+        #         {"class": "t39EBf"}
+        #     )[0]
+        #     ["aria-label"]
+        # )
         def get_open_hrs_text(text, ind):
-
-            try:
-                open_hrs = text[1].split(" to ")[ind]
             
-            except IndexError:
-                if text[1].startswith("Open 24"):
-                    open_hrs = "Open 24 hours"
-                else:
-                    open_hrs = "Error"
+            if text[1] == "Closed":
+                return "Closed"
 
-            return open_hrs
+            elif text[1].startswith("Open 24"):
+                return "Open 24 Hours"
 
-        self.open_hours = {
-            text[0]: {
-                "opens at": get_open_hrs_text(text, 0),
-                "closes at": get_open_hrs_text(text, 1)
+            else:
+                return text[1].split(" to ")[ind]
+
+        if open_hours_bs4_tags:
+
+            open_hours_text = open_hours_bs4_tags[0]["aria-label"]
+
+            open_hours_text_per_day = [
+                text.strip().split(', ')
+                for text in open_hours_text.split('.')[0].split(';')
+            ]
+
+
+            self.open_hours = {
+                bmr.find_day_of_week(text[0], self.days_of_week): {
+                    "opens": get_open_hrs_text(text, 0),
+                    "closes": get_open_hrs_text(text, 1)
+                }
+                for text in open_hours_text_per_day
             }
-            for text in open_hours_text_per_day
-        }
+
+        else:
+            self.open_hours = ["No open hours data"]
 
     def get_business_traffic_data(self):
         """snag traffic data
@@ -170,24 +250,29 @@ class MapsBusiness:
         meaning --> this business is 12% busy Mondays at 10 AM
         """
 
-        day_of_week_bs4tag_dict = {
-            day_of_week: bs4_tags
-            for day_of_week, bs4_tags
-            in zip(
-                self.days_of_week,
-                self.business_soup.find_all(
-                    "div",
-                    {"class": "g2BVhd"}
-                )
+        traffic_bs4_tags = self.business_soup.find_all(
+            "div", {"class": "g2BVhd"}
             )
-        }
 
-        self.traffic_data = {
-            day_of_week: self.get_business_traffic_data_one_day(
-                day_of_week_bs4tag_dict[day_of_week]
-            )
-            for day_of_week in self.days_of_week
-        }
+        if not traffic_bs4_tags:
+            self.traffic_data = ["No traffic data"]
+
+        else:
+            day_of_week_bs4tag_dict = {
+                day_of_week: bs4_tags
+                for day_of_week, bs4_tags
+                in zip(
+                    self.days_of_week,
+                    traffic_bs4_tags
+                )
+            }
+
+            self.traffic_data = {
+                day_of_week: self.get_business_traffic_data_one_day(
+                    day_of_week_bs4tag_dict[day_of_week]
+                )
+                for day_of_week in self.days_of_week
+            }
 
     def get_business_traffic_data_one_day(self, bs4_tags):
         """remove bs4_tags that do not have traffic data,
