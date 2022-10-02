@@ -10,7 +10,9 @@ def is_state_address(text, state="AZ"):
 
     try:
         text_split = text.split(",")
-        return True if (len(text_split) == 3) & (text_split[2].strip()[:2] == state) else False
+        at_least_two_commas = (len(text_split) >= 3)
+        correct_state = (text_split[-1].strip()[:2] == state)
+        return True if at_least_two_commas & correct_state else False
 
     except IndexError:
         return False

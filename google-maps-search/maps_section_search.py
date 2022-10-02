@@ -13,6 +13,14 @@ class MapsSectionSearch:
         self.get_soup()
         self.get_businesses()
 
+    def __repr__(self):
+
+        return f"<class MapsSectionSearch; n={len(self.businesses)}>"
+
+    def __getitem__(self, i):
+
+        return self.businesses[i]
+
     def get_soup(self):
         """get bs4 html soup
 

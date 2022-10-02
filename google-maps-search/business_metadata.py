@@ -38,19 +38,26 @@ class MapsBusiness:
         self.get_business_metadata()
 
 
+    def __repr__(self):
+
+        return f"class 'MapsBusiness'; name '{self.business_name}'>"
+
+
     def get_business_metadata(self):
 
         self.get_business_contact_info()
 
         try:
             self.address
-            self.get_business_num_reviews()
-            self.get_business_open_hours()
-            self.get_business_traffic_data()
             self.is_valid_state_business_flag = True
 
         except AttributeError:
             self.is_valid_state_business_flag = False
+
+        if self.is_valid_state_business_flag:
+            self.get_business_num_reviews()
+            self.get_business_open_hours()
+            self.get_business_traffic_data()
 
 
     def get_business_soup(self):
@@ -63,26 +70,29 @@ class MapsBusiness:
 
     def get_business_contact_info(self):
 
-        for bs4_tag in self.business_soup.find_all("div", {"class": "Io6YTe"}):
-            self.classify_soup_text(bs4_tag, state=self.state_abr)
+        contact_info_texts = [
+            bs4_tag.get_text().strip() for bs4_tag
+            in self.business_soup.find_all(
+                "div", 
+                {"class": "Io6YTe"}
+                )
+        ]
 
-    def classify_soup_text(self, bs4_tag, state):
+        for text in contact_info_texts:
+            self.classify_soup_text(text, state=self.state_abr)
+
+    def classify_soup_text(self, text, state):
         """text is website, valid address (in state), phone number,
         or none
         """
 
-        text = bs4_tag.get_text().strip()
-
         if bmr.is_website(text):
-            # return ("website", text)
             self.website = text
 
         elif bmr.is_state_address(text, state=state):
-            # return ("address", text)
             self.address = text
 
         elif bmr.is_phone_number(text):
-            # return ("phone number", text)
             self.phone_number = text
         
         else:
@@ -216,7 +226,10 @@ class MapsBusiness:
 
         def get_traffic_percentage(text):
 
-            return int(re.search(r"\d{1,3}%", text).group()[:-1])
+            try:
+                return int(re.search(r"\d{1,3}%", text).group()[:-1])
+            except AttributeError:
+                return 0
 
         traffic_data_dict = {
             get_hour(text): get_traffic_percentage(text)
