@@ -4,28 +4,32 @@ import re
 
 # geojson imports
 import json
-from shapely.geometry.polygon import Polygon
-from shapely.geometry import Point
 
 # web scraping imports
 from selenium import webdriver
 
 # homegrown imports
 from maps_section_search import MapsSectionSearch
+from state_search_path import PathSearch
 
 class StateSearch:
 
     ZOOM_FACTOR = 15
-    LATLON_DELTA = 0.0307
+    # LONLAT_DELTA = 0.0307
+    LONLAT_DELTA = 0.1
 
-    def __init__(self, state_name = "Arizona"):
+    def __init__(self, state_name = "Arizona", use_existing_data=True):
 
         self.state_name = state_name
         self.get_state_abr()
-
         self.read_geojson()
-        # self.init_webdriver() # don't want to init webdriver for every map section
-        self.init_lat_lon()
+
+        self.init_lon_lat()
+        self.init_grid_path()
+        self.init_webdriver()
+
+        if not use_existing_data:
+            self.init_df()
 
     def get_state_abr(self):
 
@@ -40,7 +44,10 @@ class StateSearch:
         """read in polygon coordinates
         """
 
-        state_geojsons = json.load(open("./google-maps-search/us-state-boundaries.json"))
+        try:
+            state_geojsons = json.load(open("./us-state-boundaries.json"))
+        except FileNotFoundError:
+            state_geojsons = json.load(open("./google-maps-search/us-state-boundaries.json"))
 
         state_geojson = [
             x for x in state_geojsons
@@ -55,32 +62,6 @@ class StateSearch:
             geojson_data["st_asgeojson"]["coordinates"][0]
         )
 
-        self.state_polygon = Polygon(self.state_boundary)
-
-    def is_point_in_state(self, lon, lat):
-        """check if point is within the boundaries of, or touching
-            the state polygon
-
-        Parameters:
-            lon (float): longitude of point to check
-            lat (float): latitude of point to check
-
-        Returns:
-            bool
-        """
-
-        point = Point(lon, lat)
-
-        if (
-            self.state_polygon.contains(point)
-            | self.state_polygon.touches(point)
-            | point.within(self.state_polygon)
-        ):
-            return True
-
-        else:
-            return False
-
     def init_webdriver(self):
         """initialize headless chrome webdriver
         """
@@ -93,7 +74,7 @@ class StateSearch:
             options=browser_options
         )
 
-    def create_maps_url(self, search_term, lat, lon):
+    def create_maps_url(self, search_term, lon, lat):
         """google maps url
 
         Parameters:
@@ -111,40 +92,72 @@ class StateSearch:
 
         return url
 
-    def init_lat_lon(self):
-        """starts grid search at most north-east point
+    def init_lon_lat(self):
+        """start grid search at most north-east point
         for AZ, this is the four corners monument
         """
 
-        lat_lon_sum = self.state_boundary[:, 0] + self.state_boundary[:, 1]
+        lon_lat_sum = self.state_boundary[:, 0] + self.state_boundary[:, 1]
 
         north_east_ind = np.where(
-            lat_lon_sum == lat_lon_sum.max()
+            lon_lat_sum == lon_lat_sum.max()
         )
 
         self.lon0, self.lat0 = self.state_boundary[north_east_ind][0]
 
-    def search_businesses(self, search_term, lat, lon):
+    def search_one_section(self, search_term, lon, lat):
+        """make url, initiate maps search centered at lat and lon for search_term
+        """
 
-        url = self.create_maps_url(search_term, lat, lon)
+        url = self.create_maps_url(search_term, lon, lat)
 
-        search_results = MapsSectionSearch(self.driver, self.state_abr, url)
+        search_results = MapsSectionSearch(self.driver, self.state_abr, url, self.df)
 
         return search_results
 
+    def business_search(self, search_term):
+
+        for lon, lat in self.search_centers:
+            print(round(lon, 4), round(lat, 4))
+            search_results = self.search_one_section(search_term, lon, lat)
+
+            if search_results.businesses:
+                print("New Businesses")
+                print([x.business_name for x in search_results.businesses])
+                self.add_business_data(search_results.businesses)
+
+
+    def init_df(self):
+
+        self.df = pd.DataFrame(columns=["business_name", "href_url"])
+
+    def add_business_data(self, businesses):
+
+        new_data = pd.DataFrame({
+            attr: [
+                business.single_data_attrs[attr]
+                for business in businesses
+            ]
+            for attr in businesses[0].single_data_attrs.keys()
+        })
+
+        self.df = pd.concat([self.df, new_data]).reset_index(drop=True)
+
+    def init_grid_path(self):
+
+        self.search_centers = (
+            PathSearch(
+                self.state_boundary, 
+                self.lon0, self.lat0, 
+                self.LONLAT_DELTA
+                ).find_path()
+            )
 
 
 if __name__ == "__main__":
 
-    x = StateSearch()
-    x.init_webdriver()
+    x = StateSearch(use_existing_data=False)
 
-    lat = 33.3068621
-    lon = -111.8752508
-
-    search_results = x.search_businesses(
-        search_term="gym", 
-        lat=lat, lon=lon
-        )
+    search_results = x.business_search("gym")
 
     print("done")
