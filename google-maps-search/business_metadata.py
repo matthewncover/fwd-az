@@ -139,6 +139,11 @@ class MapsBusiness:
 
     def get_business_contact_info(self):
 
+        self.website = nan
+        self.address = nan
+        self.state = nan
+        self.phone_number = nan
+
         contact_info_texts = [
             bs4_tag.get_text().strip() for bs4_tag
             in self.business_soup.find_all(
@@ -172,16 +177,21 @@ class MapsBusiness:
         """num google reviews
         """
 
-        self.num_reviews = int(
+        reviews_string = (
             self.business_soup.find_all(
-                "button",
-                {"class": "DkEaL"}
+                "button", {"class": "DkEaL"}
             )[0]
             .get_text()
             .strip()
             .split(' ')[0]
-            .replace(",", "")
+            .replace(',', '')
         )
+
+        try:
+            self.num_reviews = int(reviews_string)
+
+        except ValueError:
+            self.num_reviews = 0
 
     def get_business_open_hours(self):
         """ex)
