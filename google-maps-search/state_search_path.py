@@ -1,6 +1,8 @@
 import numpy as np
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+import json
+from itertools import product
 
 class PathSearch:
 
@@ -99,5 +101,31 @@ class PathSearch:
             in_state_flag = in_state_flag_new
             arr_lonlat_path = np.vstack([arr_lonlat_path, [lon, lat]])
             
+
+        return arr_lonlat_path
+
+    def read_custom_grid_path(self):
+
+        return json.load(open("./google-maps-search/az_municipalities_lonlats.json"))
+
+    def create_custom_grid_path(self):
+
+        gridpaths = self.read_custom_grid_path()
+
+        arr_lonlat_path = np.array([self.lon, self.lat])
+
+        for edge_points in gridpaths.values():
+            nw, se = edge_points
+
+            lons = np.arange(nw[0], se[0], self.LONLAT_DELTA)
+            lats = np.arange(se[1], nw[1], self.LONLAT_DELTA)
+
+            arr_lonlat_path = np.vstack([
+                arr_lonlat_path,
+                np.array([x for x in product(lons, lats)])
+            ])
+
+        # remove initial point
+        arr_lonlat_path = arr_lonlat_path[1:, :]
 
         return arr_lonlat_path
