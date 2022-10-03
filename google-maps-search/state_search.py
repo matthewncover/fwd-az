@@ -8,7 +8,7 @@ import json
 # web scraping imports
 from selenium import webdriver
 
-# homegrown imports
+# local imports
 from maps_section_search import MapsSectionSearch
 from state_search_path import PathSearch
 
@@ -18,18 +18,22 @@ class StateSearch:
     # LONLAT_DELTA = 0.0307
     LONLAT_DELTA = 0.1
 
-    def __init__(self, state_name = "Arizona", use_existing_data=True):
+    def __init__(self, state_name = "Arizona", use_existing_data=True, custom_grid_path=False):
 
+        self.use_existing_data = use_existing_data
         self.state_name = state_name
+
         self.get_state_abr()
         self.read_geojson()
 
         self.init_lon_lat()
-        self.init_grid_path()
         self.init_webdriver()
 
-        if not use_existing_data:
-            self.init_df()
+        if custom_grid_path:
+            self.init_custom_grid_path()
+        else:
+            self.init_grid_path()
+
 
     def get_state_abr(self):
 
@@ -117,6 +121,11 @@ class StateSearch:
 
     def business_search(self, search_term):
 
+        if self.use_existing_data:
+            self.read_df(search_term)
+        else:
+            self.init_df()
+
         for lon, lat in self.search_centers:
             print(round(lon, 4), round(lat, 4))
             search_results = self.search_one_section(search_term, lon, lat)
@@ -125,6 +134,22 @@ class StateSearch:
                 print("New Businesses")
                 print([x.business_name for x in search_results.businesses])
                 self.add_business_data(search_results.businesses)
+
+        self.save_data(search_term)
+
+    def search_filename(self, search_term):
+
+        return f"{self.state_abr}_{search_term}.csv"
+
+    def read_df(self, search_term):
+
+        filename = self.search_filename(search_term)
+        self.df = pd.read_csv(filename)
+
+    def save_data(self, search_term):
+
+        filename = self.search_filename(search_term)
+        self.df.to_csv(filename, index=False)
 
 
     def init_df(self):
@@ -153,10 +178,20 @@ class StateSearch:
                 ).find_path()
             )
 
+    def init_custom_grid_path(self):
+
+        self.search_centers = (
+            PathSearch(
+                self.state_boundary,
+                self.lon0, self.lat0,
+                LONLAT_DELTA=0.03
+            ).create_custom_grid_path()
+        )
+
 
 if __name__ == "__main__":
 
-    x = StateSearch(use_existing_data=False)
+    x = StateSearch(use_existing_data=True, custom_grid_path=True)
 
     search_results = x.business_search("gym")
 
