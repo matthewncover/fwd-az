@@ -7,6 +7,9 @@ import json
 
 # web scraping imports
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
+
 
 # local imports
 from maps_section_search import MapsSectionSearch
@@ -73,10 +76,16 @@ class StateSearch:
         browser_options = webdriver.ChromeOptions()
         browser_options.add_argument("headless")
 
+        # self.driver = webdriver.Chrome(
+        #     executable_path="C:\chromedriver_win32\chromedriver.exe",
+        #     options=browser_options
+        # )
+
         self.driver = webdriver.Chrome(
-            executable_path="C:\chromedriver_win32\chromedriver.exe",
+            service=ChromeService(ChromeDriverManager().install()),
             options=browser_options
-        )
+            )
+
 
     def create_maps_url(self, search_term, lon, lat):
         """google maps url
@@ -120,6 +129,8 @@ class StateSearch:
         return search_results
 
     def business_search(self, search_term):
+
+        search_term = search_term.replace(" ", "+")
 
         if self.use_existing_data:
             self.read_df(search_term)
@@ -191,8 +202,8 @@ class StateSearch:
 
 if __name__ == "__main__":
 
-    x = StateSearch(use_existing_data=True, custom_grid_path=True)
+    x = StateSearch(use_existing_data=False, custom_grid_path=True)
 
-    search_results = x.business_search("gym")
+    search_results = x.business_search("high end grocery store")
 
     print("done")
