@@ -169,6 +169,14 @@ class StateSearch:
 
     def add_business_data(self, businesses):
 
+        expected_attrs = businesses[0].single_data_attrs.keys()
+
+        for business in businesses:
+            for attr in expected_attrs:
+                if attr not in business.single_data_attrs.keys():
+                    business.single_data_attrs[attr] = np.nan
+
+
         new_data = pd.DataFrame({
             attr: [
                 business.single_data_attrs[attr]
@@ -202,8 +210,19 @@ class StateSearch:
 
 if __name__ == "__main__":
 
-    x = StateSearch(use_existing_data=False, custom_grid_path=True)
+    x = StateSearch(use_existing_data=False, custom_grid_path=False)
 
-    search_results = x.business_search("high end grocery store")
+    search_terms = [
+        # "church", "temple", "house of worship",
+        # "park", "whole foods", "sprouts",
+        # "community center", "public library",
+        # "bookstore", "farmers market", "high end coffee shop",
+        # "yoga studio", "coworking space", "food co-op",
+        # "post office", "dispensary",
+        "trailhead"
+        ]
+    for search_term in search_terms:
+        print(search_term)
+        search_results = x.business_search(search_term)
 
     print("done")

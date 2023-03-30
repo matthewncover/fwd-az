@@ -176,22 +176,25 @@ class MapsBusiness:
     def get_business_num_reviews(self):
         """num google reviews
         """
-
-        reviews_string = (
-            self.business_soup.find_all(
-                "button", {"class": "DkEaL"}
-            )[0]
-            .get_text()
-            .strip()
-            .split(' ')[0]
-            .replace(',', '')
-        )
+        try:
+            reviews_string = (
+                self.business_soup.find_all(
+                    "button", {"class": "DkEaL"}
+                )[0]
+                .get_text()
+                .strip()
+                .split(' ')[0]
+                .replace(',', '')
+            )
+        except IndexError:
+            self.num_reviews = nan
+            return
 
         try:
             self.num_reviews = int(reviews_string)
 
         except ValueError:
-            self.num_reviews = 0
+            self.num_reviews = nan
 
     def get_business_open_hours(self):
         """ex)
@@ -217,14 +220,17 @@ class MapsBusiness:
         # )
         def get_open_hrs_text(text, ind):
             
-            if text[1] == "Closed":
-                return "Closed"
+            try:
+                if text[1] == "Closed":
+                    return "Closed"
 
-            elif text[1].startswith("Open 24"):
-                return "Open 24 Hours"
+                elif text[1].startswith("Open 24"):
+                    return "Open 24 Hours"
 
-            else:
-                return text[1].split(" to ")[ind]
+                else:
+                    return text[1].split(" to ")[ind]
+            except IndexError:
+                return nan
 
         if open_hours_bs4_tags:
 
@@ -234,7 +240,6 @@ class MapsBusiness:
                 text.strip().split(', ')
                 for text in open_hours_text.split('.')[0].split(';')
             ]
-
 
             self.open_hours = {
                 bmr.find_day_of_week(text[0], self.days_of_week): {

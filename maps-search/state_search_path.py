@@ -106,7 +106,7 @@ class PathSearch:
 
     def read_custom_grid_path(self):
 
-        return json.load(open("./google-maps-search/az_municipalities_lonlats.json"))
+        return json.load(open("./az_municipalities_lonlats.json"))
 
     def create_custom_grid_path(self):
 

@@ -1,4 +1,5 @@
 import re
+from numpy import nan
 
 def is_website(text):
 
@@ -42,7 +43,10 @@ def is_phone_number(text):
 def find_day_of_week(text, days_of_week):
 
     expression = rf"({'|'.join(days_of_week)})"
-    return re.search(expression, text).group()
+    try:
+        return re.search(expression, text).group()
+    except AttributeError:
+        return nan
 
 ##
 
