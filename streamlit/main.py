@@ -1,5 +1,8 @@
 import streamlit as st
-import pandas as pd
+import os, pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 @st.cache_data
 def load_data():
@@ -15,8 +18,27 @@ def convert_df_for_download(df):
 def run_webapp():
     st.title("Forward Party Arizona")
 
+    page_login()
+
+def page_login():
+
+    logged_in = st.session_state.get("logged_in", False)
+
+    if not logged_in:
+        st.write("#### Login")
+        username = st.text_input("Username:")
+        password = st.text_input("Password:", type="password")
+        if (username, password) == (os.environ["USER"], os.environ["PASS"]):
+            st.session_state.logged_in = True
+            st.success("Welcome")
+            st.experimental_rerun()
+            # sidebar_pages()
+    else:
+        sidebar_pages()
+
+
+def sidebar_pages():
     page_dict = {
-        # "Welcome": page_welcome,
         "Find Locations": page_filter,
         "Add Volunteering Event": page_survey,
         "Provide feedback": page_feedback
@@ -29,9 +51,6 @@ def run_webapp():
     page_dict[page]()
 
 
-def page_welcome():
-    st.write("Find volunteer location recommendations, and share data to make Forward volunteering more effective.")
-
 def page_filter():
 
     df_filtered = df.copy()
@@ -40,17 +59,23 @@ def page_filter():
     # don't just filter for exact zipcode; have a ranking system that includes proximal zipcodes
     # zipcode_filter = st.text_input("Zipcode:")
     zipcodes = sorted(df_filtered.zipcode.dropna().unique().tolist())
-    zipcode_filter = st.multiselect("Zipcode(s):", zipcodes)
+    zipcode_filter = st.multiselect("Zipcode:", zipcodes)
     if zipcode_filter:
         # mask_zipcode = df_filtered.Zipcode == zipcode_filter
         mask_zipcode = df_filtered.zipcode.isin(zipcode_filter)
         df_filtered = df_filtered[mask_zipcode]
 
+    cities = sorted(df_filtered.city.dropna().unique().tolist())
+    city_filter = st.multiselect("City:", cities)
+    if city_filter:
+        mask_city = df_filtered.city.isin(city_filter)
+        df_filtered = df_filtered[mask_city]
+
     location_types = sorted(df_filtered.location_category.unique().tolist())
     # location_types = ["park"]
     # location_bool_filter = st.radio("Location Type:", ["Any", "Choose"])
     # if location_bool_filter == "Choose":
-    location_type_filter = st.multiselect("Location Type(s):", location_types, help="Choose one or more options")
+    location_type_filter = st.multiselect("Location Type:", location_types, help="Choose one or more options")
     if location_type_filter:
         df_filtered = df_filtered[df_filtered.location_category.isin(location_type_filter)]
     # location_type_filter.
@@ -79,9 +104,14 @@ def page_filter():
         # df_filtered = df_filtered[mask_start_time & mask_end_time]
         # pass
 
-    df_display = df_filtered[['location_id', 'business_name', 'address', 'phone_number', 'location_category']].copy()
+    df_display = (
+        df_filtered
+        [['location_id', 'business_name', 'address', 'phone_number', 'location_category', 'href_url']]
+        .sort_values(by=["location_category", "business_name"])
+        .copy()
+        )
     df_display.index = range(1, df_display.shape[0]+1)
-    df_display.columns = ["ID", "Name", "Address", "Phone Number", "Category"]
+    df_display.columns = ["ID", "Name", "Address", "Phone Number", "Category", "Google Maps URL"]
 
     # top_n = 10
     st.write(f"{df_filtered.shape[0]} records")
@@ -114,12 +144,6 @@ def page_survey():
                 survey_bool_setup = st.radio("Were you allowed to set up here?", options=["no", "yes"])
                 survey_notes = st.text_area("Please add any notes for future volunteers:", height=150)
 
-                
-
-        # col1 = st.text_input("Column 1")
-        # col2 = st.number_input("Column 2", format="%.2f")
-        # col3 = st.number_input("Column 3", step=1)
-
                 submit_button = st.form_submit_button("Submit")
 
                 if submit_button:
@@ -130,11 +154,10 @@ def page_survey():
 def page_feedback():
     st.write("""
     This webapp is in early development. Your feedback is incredibly valuable!\n
-    Please share any suggestions.
     """)
 
     with st.form(key="Feedback"):
-        feedback = st.text_area("Feedback:", height=200)
+        feedback = st.text_area("Please share any suggestions:", height=200)
 
         submit_button = st.form_submit_button("Submit")
         if submit_button:
