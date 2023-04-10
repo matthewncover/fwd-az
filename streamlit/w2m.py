@@ -12,14 +12,27 @@ class When2MeetReader:
     SEARCH_DAY_TAG = {"style": "display:inline-block;*display:inline;zoom:1;font-size:16px;"}
     SEARCH_CELL_TAGS = {"id": lambda x: x and x.startswith("GroupTime")}
 
+    DAY_ORDER = {'Saturday': 1, 'Sunday': 2, 'Monday': 3, 'Tuesday': 4, 'Wednesday': 5, 'Thursday': 6, 'Friday': 7}
+
+    URL_REGEX = r"https:\/\/www\.when2meet\.com\/\?\d+-\w+"
+
     def __init__(self, url):
         
         self.url = url
-        self.__init_webdriver()
+        self.__validate_url()
+
+    def __validate_url(self):
+
+        if re.match(self.URL_REGEX, self.url):
+            self.is_valid_url = True
+        else:
+            self.is_valid_url = False
 
     def get_dataframe(self):
 
+        self.__init_webdriver()
         self.__init_dataframe()
+
         self.df["cell_datetime"] = self.df.id.map(self._get_cell_datetime)
         self.df["those_available"], self.df["those_unavailable"] = (
             zip(*self.df
@@ -29,11 +42,13 @@ class When2MeetReader:
         self.df["n_available"] = self.df.those_available.map(len)
         self.df["n_unavailable"] = self.df.those_unavailable.map(len)
 
-        self.df["dt_time_of_day"], self.df["day of week"] = (
+        self.df["dt_time_of_day"], self.df["day_of_week"] = (
             zip(*self.df
                 .cell_datetime.map(self._split_cell_datetime)
             )
         )
+
+        self.__sort_dataframe()
     
     def __init_webdriver(self):
 
@@ -113,3 +128,12 @@ class When2MeetReader:
             day_of_week = split_date_data[0]
 
         return cell_datetime_dt, day_of_week
+    
+    def __sort_dataframe(self):
+
+        self.df["day_order"] = self.df.day_of_week.map(self.DAY_ORDER)
+
+        self.df = self.df.sort_values(
+            by=["n_available", "day_order", "dt_time_of_day"],
+            ascending=[False, True, True]
+        ).reset_index(drop=True)
