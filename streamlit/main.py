@@ -1,6 +1,8 @@
 import streamlit as st
-import os, pandas as pd
+import os, pandas as pd, time
 from dotenv import load_dotenv
+
+from feedback import send_email
 
 load_dotenv()
 
@@ -39,6 +41,7 @@ def page_login():
 
 def sidebar_pages():
     page_dict = {
+        "Welcome": page_welcome,
         "Find Locations": page_filter,
         "Add Volunteering Event": page_survey,
         "Provide feedback": page_feedback
@@ -50,6 +53,17 @@ def sidebar_pages():
 
     page_dict[page]()
 
+
+def page_welcome():
+    st.write("#### Welcome, amazing volunteer!")
+
+    st.write("Current goal: 55,000 signatures")
+    progress_bar = st.progress(0)
+
+    for i in range(100):
+        # Perform some long-running computation here
+        time.sleep(0.03)
+        progress_bar.progress(i + 1)
 
 def page_filter():
 
@@ -139,21 +153,28 @@ def page_survey():
         correct_business = st.radio("Is this correct?", options=["no", "yes"])
     
         if correct_business == "yes":
+            survey_bool_setup = st.radio("Were you allowed to set up here?", options=["no", "yes"])
+
             with st.form(key="Share volunteer data"):
 
-                survey_bool_setup = st.radio("Were you allowed to set up here?", options=["no", "yes"])
+                if survey_bool_setup == "yes":
+                    survey_num_signatures = int(st.number_input("How many signatures were collected?", format="%d", value=0))
+                    survey_num_volunteers = int(st.number_input("How many volunteers?", format="%d", value=0))
+                    survey_num_hours = st.number_input("How many hours did you / your team collect signatures for? (best estimate)")
+                
                 survey_notes = st.text_area("Please add any notes for future volunteers:", height=150)
 
                 submit_button = st.form_submit_button("Submit")
 
                 if submit_button:
-                    print(survey_bool_setup, survey_notes)
+                    ### add to a second table, connect to location_id
                     st.success("Data added successfully")
 
 
 def page_feedback():
     st.write("""
     This webapp is in early development. Your feedback is incredibly valuable!\n
+    Note: will log you out
     """)
 
     with st.form(key="Feedback"):
@@ -162,8 +183,26 @@ def page_feedback():
         submit_button = st.form_submit_button("Submit")
         if submit_button:
             ## email Matthew
-            st.success("Data added successfully")
+            container = st.container()
+            sending_message = container.text("Sending...")
+            subject = "Streamlit Feedback - Forward Arizona"
 
+            try:
+                send_email(subject, feedback)
+                sending_message.empty()
+                container.empty()
+                st.success("Thank you!! Feedback shared. Logging out...")
+            
+            except:
+                sending_message.empty()
+                container.empty()
+                st.error("Something went wrong, apologies.")
+
+            time.sleep(2)
+            
+            st.session_state.logged_in = False        
+            page_login()
+            st.experimental_rerun()
 
 if __name__ == "__main__":
     df = load_data()
