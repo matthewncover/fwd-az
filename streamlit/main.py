@@ -3,6 +3,10 @@ import os, pandas as pd, time
 from dotenv import load_dotenv
 
 from feedback import send_email
+from w2m import When2MeetReader
+
+st.set_page_config(page_title="My Streamlit App", layout="wide", initial_sidebar_state="collapsed", page_icon=":guardsman:", 
+                   menu_items={"Get Help": "https://www.streamlit.io/docs/"})
 
 load_dotenv()
 
@@ -118,6 +122,28 @@ def page_filter():
         # df_filtered = df_filtered[mask_start_time & mask_end_time]
         # pass
 
+    with st.form(key="When2Meet"):
+        w2m_url = st.text_input("When2Meet URL:")
+
+        submit_button = st.form_submit_button("Add")
+
+        if submit_button:
+            if w2m_url:
+                reader = When2MeetReader(w2m_url)
+                
+                if reader.is_valid_url:
+                    container = st.container()
+                    wip_text = container.text("Retrieving results...")
+                    reader.get_dataframe()
+                    wip_text.empty()
+                    container.empty()
+
+                    st.success("Successfully Added")
+
+                else:
+                    st.error("Invalid When2Meet URL")
+
+
     df_display = (
         df_filtered
         [['location_id', 'business_name', 'address', 'phone_number', 'location_category', 'href_url']]
@@ -127,7 +153,6 @@ def page_filter():
     df_display.index = range(1, df_display.shape[0]+1)
     df_display.columns = ["ID", "Name", "Address", "Phone Number", "Category", "Google Maps URL"]
 
-    # top_n = 10
     st.write(f"{df_filtered.shape[0]} records")
     st.write(df_display)
 
@@ -168,6 +193,8 @@ def page_survey():
 
                 if submit_button:
                     ### add to a second table, connect to location_id
+                    # TODO
+                    raise NotImplementedError
                     st.success("Data added successfully")
 
 
