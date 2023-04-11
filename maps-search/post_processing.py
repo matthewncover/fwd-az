@@ -6,7 +6,7 @@ from geopy.geocoders import Nominatim
 def postprocess_addresses(fn):
     df = pd.read_csv(fn)
 
-    df.drop("state_abr", axis=1, inplace=True)
+    df.drop(["state_abr", "nan_opens", "nan_closes"], axis=1, inplace=True)
 
     df["city"], df["st"], df["zipcode"] = zip(*df.address.map(bmr.address_breakdown))
 
