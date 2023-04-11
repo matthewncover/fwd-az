@@ -1,0 +1,12 @@
+version: '3'
+services:
+  forward-volunteering:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      restart: always
+    container_name: forward-volunteering
+    volumes:
+      - ./streamlit:/app
+    environment:
+      - TZ=America/Phoenix
