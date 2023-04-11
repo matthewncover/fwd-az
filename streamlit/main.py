@@ -1,5 +1,5 @@
 import streamlit as st
-import os, pandas as pd, time
+import os, pandas as pd, time, datetime as dt
 from dotenv import load_dotenv
 
 from feedback import send_email
@@ -17,9 +17,9 @@ def load_data():
     df = df[df.state == "AZ"]
     return df
 
-@st.cache
+@st.cache_data
 def convert_df_for_download(df):
-    return df.to_csv().encode('utf-8')
+    return df.to_csv(index=None).encode('utf-8')
 
 def run_webapp():
     st.title("Forward Party Arizona")
@@ -68,6 +68,9 @@ def page_welcome():
         # Perform some long-running computation here
         time.sleep(0.03)
         progress_bar.progress(i + 1)
+
+    time.sleep(1.5)
+    st.write("There's a sidebar on the left.")
 
 def page_filter():
 
@@ -155,6 +158,18 @@ def page_filter():
 
     st.write(f"{df_filtered.shape[0]} records")
     st.write(df_display)
+
+    if df_display.shape[0] != 0:
+        csv = convert_df_for_download(df_display)
+
+        today = dt.datetime.today().strftime('%b %d %y')
+
+        st.download_button(
+            label=f"Download as .csv",
+            data=csv,
+            file_name=f'fwd volunteer data {today}.csv',
+            mime='text/csv',
+        )
 
 def page_survey():
 
