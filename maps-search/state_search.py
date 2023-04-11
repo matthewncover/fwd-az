@@ -219,8 +219,10 @@ if __name__ == "__main__":
         # "bookstore", "farmers market", "high end coffee shop",
         # "yoga studio", "coworking space", "food co-op",
         # "post office", "dispensary",
-        "trailhead"
+        # "trailhead",
+        "dmv"
         ]
+    
     for search_term in search_terms:
         print(search_term)
         search_results = x.business_search(search_term)
