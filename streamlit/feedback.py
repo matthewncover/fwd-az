@@ -1,19 +1,22 @@
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import smtplib, ssl
+import streamlit as st
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-load_dotenv()
+# load_dotenv()
 
 def send_email(subject, text, recipient="matthew"):
 
     port = 465
-    sender_email = os.getenv("SENDER_EMAIL")
-    receiver_email = os.getenv(f"RECEIVER_EMAIL_{str.upper(recipient)}")
-    password = os.getenv("APP_PASSWORD")
-
+    # sender_email = os.getenv("SENDER_EMAIL")
+    # receiver_email = os.getenv(f"RECEIVER_EMAIL_{str.upper(recipient)}")
+    # password = os.getenv("APP_PASSWORD")
+    sender_email = st.secrets["SENDER_EMAIL"]
+    receiver_email = st.secrets["RECEIVER_EMAIL_MATTHEW"]
+    password = st.secrets["EMAIL_APP_PASSWORD"]
 
     message = MIMEMultipart("alternative")
     message["Subject"] = subject
