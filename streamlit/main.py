@@ -1,6 +1,6 @@
 import streamlit as st
 import os, pandas as pd, time, datetime as dt
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 from feedback import send_email
 from w2m import When2MeetReader
@@ -8,11 +8,14 @@ from w2m import When2MeetReader
 st.set_page_config(page_title="My Streamlit App", layout="wide", initial_sidebar_state="collapsed", page_icon=":guardsman:", 
                    menu_items={"Get Help": "https://www.streamlit.io/docs/"})
 
-load_dotenv()
+# load_dotenv()
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("./maps-search/AZ-master.csv")
+    ###
+    # os.chdir("./streamlit")
+    ###
+    df = pd.read_csv("./AZ-master.csv")
     df.zipcode = df.zipcode.map(lambda x: pd.NA if pd.isna(x) else int(x))
     df = df[df.state == "AZ"]
     return df
@@ -34,7 +37,8 @@ def page_login():
         st.write("#### Login")
         username = st.text_input("Username:")
         password = st.text_input("Password:", type="password")
-        if (username, password) == (os.environ["USER"], os.environ["PASS"]):
+        # if (username, password) == (os.environ["USER"], os.environ["PASS"]):
+        if (username, password) == (st.secrets["USER"], st.secrets["PASS"]):
             st.session_state.logged_in = True
             st.success("Welcome")
             st.experimental_rerun()
@@ -82,7 +86,7 @@ def page_filter():
     zipcodes = sorted(df_filtered.zipcode.dropna().unique().tolist())
     zipcode_filter = st.multiselect("Zipcode:", zipcodes)
     if zipcode_filter:
-        # mask_zipcode = df_filtered.Zipcode == zipcode_filter
+        # mask_zipcode = df_filtered.zipcode == zipcode_filter
         mask_zipcode = df_filtered.zipcode.isin(zipcode_filter)
         df_filtered = df_filtered[mask_zipcode]
 
