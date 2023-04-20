@@ -1,5 +1,7 @@
 import streamlit as st
 import os, pandas as pd, time, datetime as dt
+from azure.storage.blob import BlobServiceClient
+from io import StringIO
 # from dotenv import load_dotenv
 
 from feedback import send_email
@@ -12,12 +14,30 @@ st.set_page_config(page_title="My Streamlit App", layout="wide", initial_sidebar
 
 print(os.getcwd())
 
+def load_from_azure():
+
+    storage_account_name = st.secrets["AZURE_STORAGE_ACCOUNT_NAME"]
+    account_key = st.secrets["AZURE_ACCOUNT_KEY"]
+    container_name = st.secrets["AZURE_CONTAINER_NAME"]
+
+    connect_str = f"DefaultEndpointsProtocol=https;AccountName={storage_account_name};AccountKey={account_key};EndpointSuffix=core.windows.net"
+    blob_service_client = BlobServiceClient.from_connection_string(connect_str)
+    container_client = blob_service_client.get_container_client(container_name)
+    blob_client = container_client.get_blob_client("AZ-master.csv")
+    data = blob_client.download_blob().readall().decode('utf-8')
+
+    data_buffer = StringIO(data)
+    df = pd.read_csv(data_buffer)
+
+    return df
+
 @st.cache_data
 def load_data():
     ###
     # os.chdir("./streamlit")
     ###
-    df = pd.read_csv("./AZ-master.csv")
+    df = load_from_azure()
+    # df = pd.read_csv("./AZ-master.csv")
     df.zipcode = df.zipcode.map(lambda x: pd.NA if pd.isna(x) else int(x))
     df = df[df.state == "AZ"]
     return df
