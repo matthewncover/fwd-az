@@ -10,6 +10,8 @@ st.set_page_config(page_title="My Streamlit App", layout="wide", initial_sidebar
 
 # load_dotenv()
 
+print(os.getcwd())
+
 @st.cache_data
 def load_data():
     ###
