@@ -1,4 +1,4 @@
-azure_storage==0.37.0
+azure-storage-blob
 beautifulsoup4==4.12.2
 pandas==2.0.0
 pandas_stubs==1.2.0.35
