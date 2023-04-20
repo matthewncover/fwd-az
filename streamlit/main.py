@@ -10,10 +10,6 @@ from w2m import When2MeetReader
 st.set_page_config(page_title="My Streamlit App", layout="wide", initial_sidebar_state="collapsed", page_icon=":guardsman:", 
                    menu_items={"Get Help": "https://www.streamlit.io/docs/"})
 
-# load_dotenv()
-
-print(os.getcwd())
-
 def load_from_azure():
 
     storage_account_name = st.secrets["AZURE_STORAGE_ACCOUNT_NAME"]
