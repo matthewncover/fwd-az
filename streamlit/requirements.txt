@@ -6,4 +6,5 @@ pandas_stubs==1.2.0.35
 python-dotenv==1.0.0
 selenium==4.8.3
 Shapely==1.8.4
+streamlit
 webdriver_manager==3.8.5
