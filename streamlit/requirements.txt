@@ -1,6 +1,6 @@
 azure-storage-blob
 beautifulsoup4==4.12.2
-pandas==2.0.0
+pandas
 pandas_stubs==1.2.0.35
 python-dotenv==1.0.0
 selenium==4.8.3
